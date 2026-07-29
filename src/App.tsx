@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppView, Category, Prompt } from './types';
 import { loadPrompts, savePrompts, loadCategories } from './store/data';
-import { LayoutDashboard, TerminalSquare, Swords, Settings2, BookOpen, Puzzle, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { LayoutDashboard, Settings2, PanelLeftClose, PanelLeft, BookOpen, Puzzle } from 'lucide-react';
 import Dashboard from './components/Dashboard';
-import Playground from './components/Playground';
-import Arena from './components/Arena';
 import Settings from './components/Settings';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>('playground');
+  const [currentView, setCurrentView] = useState<AppView>('dashboard');
   const [prompts, setPrompts] = useState<Prompt[]>(() => loadPrompts());
   const [categories] = useState<Category[]>(() => loadCategories());
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(() => {
@@ -16,22 +14,53 @@ export default function App() {
     return saved.length > 0 ? saved[0].id : null;
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Persist prompts whenever they change
   useEffect(() => {
     savePrompts(prompts);
   }, [prompts]);
 
-  const updatePrompt = (updatedPrompt: Prompt) => {
-    setPrompts(prev => prev.map(p => p.id === updatedPrompt.id ? updatedPrompt : p));
-  };
+  // ⌘ / Ctrl + N 快速新建
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        createBlankPrompt();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [prompts.length]);
 
-  const addPrompt = (newPrompt: Prompt) => {
+  const updatePrompt = useCallback((updatedPrompt: Prompt) => {
+    setPrompts(prev => prev.map(p => p.id === updatedPrompt.id ? updatedPrompt : p));
+  }, []);
+
+  const addPrompt = useCallback((newPrompt: Prompt) => {
     setPrompts(prev => [newPrompt, ...prev]);
     setSelectedPromptId(newPrompt.id);
-  };
+  }, []);
 
-  const deletePrompt = (id: string) => {
+  const createBlankPrompt = useCallback(() => {
+    const id = 'p-' + Date.now();
+    const newPrompt: Prompt = {
+      id,
+      title: '未命名提示词',
+      command: '',
+      categoryId: categories[0]?.id || 'cat-1',
+      template: '',
+      variables: [],
+      style: '',
+      bestFor: [],
+      history: [],
+    };
+    setPrompts(prev => [newPrompt, ...prev]);
+    setSelectedPromptId(id);
+    setCurrentView('dashboard');
+  }, [categories]);
+
+  const deletePrompt = useCallback((id: string) => {
     setPrompts(prev => {
       const next = prev.filter(p => p.id !== id);
       if (selectedPromptId === id) {
@@ -39,49 +68,41 @@ export default function App() {
       }
       return next;
     });
-  };
+  }, [selectedPromptId]);
 
   const navItems = [
-    { id: 'playground' as AppView, label: '自动驾驶舱', icon: <TerminalSquare size={20} /> },
-    { id: 'dashboard' as AppView, label: '资产管理', icon: <LayoutDashboard size={20} /> },
-    { id: 'arena' as AppView, label: 'A/B 竞技场', icon: <Swords size={20} /> },
-    { id: 'settings' as AppView, label: '设置中心', icon: <Settings2 size={20} /> },
-  ];
-
-  const bottomLinks = [
-    { id: 'docs', label: '使用文档', icon: <BookOpen size={20} />, href: 'https://github.com/T01Studio/PromptX/blob/master/docs/user-guide.md' },
-    { id: 'extension', label: '浏览器扩展', icon: <Puzzle size={20} />, href: 'https://github.com/T01Studio/PromptX/tree/master/extension' },
+    { id: 'dashboard' as AppView, label: '提示词', icon: <LayoutDashboard size={20} /> },
   ];
 
   return (
-    <div className="flex h-screen w-full relative overflow-hidden">
-      {/* Sidebar Toggle Button (always visible) */}
+    <div className="flex h-screen w-full relative overflow-hidden bg-[#0F0F10]">
+      {/* Sidebar Toggle Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="absolute top-4 left-4 z-30 p-2 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
+        className="absolute top-4 left-4 z-30 p-2 rounded-[8px] text-white/40 hover:text-white hover:bg-white/[0.05] transition-all duration-300"
         title={sidebarOpen ? '收起菜单' : '展开菜单'}
       >
-        {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
+        {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
       </button>
 
-      {/* Immersive Sidebar Navigation */}
+      {/* Sidebar Navigation */}
       <nav
-        className={`glass-panel flex flex-col items-center py-8 px-4 shrink-0 transition-all duration-300 z-20 overflow-hidden ${sidebarOpen ? 'w-64' : 'w-0 p-0 border-none opacity-0 pointer-events-none'}`}
+        className={`flex flex-col items-center py-6 px-3 shrink-0 transition-all duration-300 z-20 overflow-hidden border-r border-white/[0.03] ${sidebarOpen ? 'w-[200px]' : 'w-0 p-0 border-none opacity-0 pointer-events-none'}`}
       >
-        <div className="w-full flex items-center gap-4 mb-12 px-2">
-          <div className="w-8 h-8 bg-white text-[#121212] rounded-[8px] flex items-center justify-center font-bold text-lg">
+        <div className="w-full flex items-center gap-3 mb-8 px-2">
+          <div className="w-7 h-7 bg-white text-[#121212] rounded-[6px] flex items-center justify-center font-bold text-sm">
             P
           </div>
-          <span className="font-bold text-lg tracking-tight text-white">PromptX</span>
+          <span className="font-bold text-base tracking-tight text-white">PromptX</span>
         </div>
 
-        <div className="w-full space-y-2">
+        <div className="w-full space-y-1">
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setCurrentView(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-[8px] transition-all duration-300 text-sm
-                ${currentView === item.id ? 'bg-white/[0.08] text-white font-medium' : 'text-white/50 hover:bg-white/[0.04] hover:text-white/90 font-normal'}`}
+              onClick={() => { setCurrentView(item.id); setSettingsOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] transition-all duration-200 text-sm
+                ${currentView === item.id ? 'bg-white/[0.06] text-white font-medium' : 'text-white/50 hover:bg-white/[0.03] hover:text-white/80 font-normal'}`}
             >
               {item.icon}
               {item.label}
@@ -89,49 +110,57 @@ export default function App() {
           ))}
         </div>
 
-        <div className="mt-auto w-full px-2 space-y-3">
-          {bottomLinks.map(link => (
-            <a
-              key={link.id}
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-[8px] transition-all duration-300 text-sm text-white/50 hover:bg-white/[0.04] hover:text-white/90 font-normal"
-            >
-              {link.icon}
-              {link.label}
-            </a>
-          ))}
-          <div className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-[12px] text-sm text-white/50 space-y-2 subtle-shadow-1">
-            <p className="font-medium text-white/90">意图引擎就绪</p>
-            <p className="text-[12px] leading-[1.6]">直接输入自然语言："帮我写一个小红书咖啡探店文案"</p>
-          </div>
+        <div className="mt-auto w-full px-2 space-y-1">
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] transition-all duration-200 text-sm text-white/40 hover:bg-white/[0.03] hover:text-white/70 font-normal`}
+          >
+            <Settings2 size={18} />
+            设置
+          </button>
+          <a
+            href="https://github.com/nicoliustudio/PromptX/blob/master/docs/user-guide.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] transition-all duration-200 text-sm text-white/30 hover:bg-white/[0.03] hover:text-white/50 font-normal"
+          >
+            <BookOpen size={16} />
+            使用文档
+          </a>
+          <a
+            href="https://github.com/nicoliustudio/PromptX/tree/master/extension"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] transition-all duration-200 text-sm text-white/30 hover:bg-white/[0.03] hover:text-white/50 font-normal"
+          >
+            <Puzzle size={16} />
+            浏览器扩展
+          </a>
         </div>
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-transparent z-10 relative">
-        {currentView === 'dashboard' && (
-          <Dashboard 
-            prompts={prompts} 
-            categories={categories} 
-            selectedPromptId={selectedPromptId}
-            onSelectPrompt={setSelectedPromptId}
-            onUpdatePrompt={updatePrompt}
-            onCreatePrompt={addPrompt}
-            onDeletePrompt={deletePrompt}
-          />
-        )}
-        {currentView === 'playground' && (
-          <Playground prompts={prompts} />
-        )}
-        {currentView === 'arena' && (
-          <Arena prompts={prompts} />
-        )}
-        {currentView === 'settings' && (
-          <Settings />
-        )}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#0F0F10] z-10 relative">
+        <Dashboard 
+          prompts={prompts} 
+          categories={categories} 
+          selectedPromptId={selectedPromptId}
+          onSelectPrompt={setSelectedPromptId}
+          onUpdatePrompt={updatePrompt}
+          onCreatePrompt={addPrompt}
+          onCreateBlank={createBlankPrompt}
+          onDeletePrompt={deletePrompt}
+        />
       </main>
+
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F0F10]/80 backdrop-blur-[20px]" onClick={() => setSettingsOpen(false)}>
+          <div className="bg-[#151517] border border-white/[0.05] rounded-[16px] w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <Settings />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Category, Prompt } from '../types';
-import { Search, Plus, History, Command, Save, Tag, Target, CheckCircle2, Loader2, Bot, Sparkles, X, PanelRightClose, PanelRight, Trash2, Variable } from 'lucide-react';
+import { Search, Plus, History, Command, Save, CheckCircle2, Loader2, Sparkles, X, PanelRightClose, Trash2, Variable } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface DashboardProps {
@@ -10,10 +10,11 @@ interface DashboardProps {
   onSelectPrompt: (id: string) => void;
   onUpdatePrompt: (prompt: Prompt) => void;
   onCreatePrompt?: (prompt: Prompt) => void;
+  onCreateBlank?: () => void;
   onDeletePrompt?: (id: string) => void;
 }
 
-export default function Dashboard({ prompts, categories, selectedPromptId, onSelectPrompt, onUpdatePrompt, onCreatePrompt, onDeletePrompt }: DashboardProps) {
+export default function Dashboard({ prompts, categories, selectedPromptId, onSelectPrompt, onUpdatePrompt, onCreatePrompt, onCreateBlank, onDeletePrompt }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -24,7 +25,7 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
   const [extractText, setExtractText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedPrompt, setExtractedPrompt] = useState<Partial<Prompt> | null>(null);
-  const [timelineOpen, setTimelineOpen] = useState(true);
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   // ── 手动创建表单状态 ──
   const [manualTitle, setManualTitle] = useState('');
@@ -99,6 +100,39 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
     return matchesSearch && matchesCategory;
   });
 
+  // ── 运行模式状态 ──
+  const [editMode, setEditMode] = useState<'edit' | 'run'>('edit');
+  const [runValues, setRunValues] = useState<Record<string, string>>({});
+
+  // 切换提示词时重置运行模式
+  const handleSelectPromptWithReset = (id: string) => {
+    onSelectPrompt(id);
+    setEditMode('edit');
+    setRunValues({});
+  };
+
+  // 组装最终提示词
+  const assembledPrompt = useMemo(() => {
+    if (!selectedPrompt) return '';
+    let result = selectedPrompt.template;
+    selectedPrompt.variables.forEach(v => {
+      const val = runValues[v] || '';
+      result = result.replace(new RegExp(`\\{\\{\\s*${v}\\s*\\}\\}`, 'g'), val || `{{${v}}}`);
+    });
+    return result;
+  }, [selectedPrompt, runValues]);
+
+  const handleCopyAssembled = () => {
+    navigator.clipboard.writeText(assembledPrompt);
+    showCopyToast();
+  };
+
+  const [copyToast, setCopyToast] = useState(false);
+  const showCopyToast = () => {
+    setCopyToast(true);
+    setTimeout(() => setCopyToast(false), 2000);
+  };
+
   const handleContentChange = (newContent: string) => {
     if (!selectedPrompt) return;
     onUpdatePrompt({
@@ -162,33 +196,33 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
 
   return (
     <div className="flex h-full w-full bg-transparent text-[#FAFAFA]">
-      {/* Middle Column: Prompt List */}
-      <div className="w-[320px] border-r border-white/[0.05] flex flex-col glass-panel shrink-0 rounded-tl-[16px]">
-        <div className="p-6 border-b border-white/[0.05] space-y-4">
+      {/* Left Column: Prompt List */}
+      <div className="w-[280px] border-r border-white/[0.04] flex flex-col shrink-0">
+        <div className="p-5 border-b border-white/[0.04] space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-title text-[18px]">资产管理</h2>
+            <h2 className="text-title text-[16px]">提示词</h2>
             <button 
-              onClick={() => { setIsAddingPrompt(true); setExtractedPrompt(null); setExtractText(''); setIsExtracting(false); resetManualForm(); }}
-              className="btn-icon"
-              title="新增系统能力"
+              onClick={() => onCreateBlank?.()}
+              className="text-[13px] font-medium text-[#D4AF37] hover:opacity-80 transition-opacity flex items-center gap-1"
             >
-              <Plus size={20} />
+              <Plus size={16} />
+              新建提示词
             </button>
           </div>
           <div className="relative">
-            <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-white/50" size={18} />
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-white/30" size={16} />
             <input 
               type="text" 
-              placeholder="搜索资产..." 
+              placeholder="搜索提示词..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="input-minimal pl-8 border-b border-white/[0.1] pb-2 placeholder-white/30"
+              className="input-minimal pl-7 border-b border-white/[0.08] pb-2 placeholder-white/25 text-[14px]"
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 no-[scrollbar-width:none]">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
             <button 
               onClick={() => setSelectedCategory(null)}
-              className={`whitespace-nowrap px-4 py-1.5 rounded-[12px] text-sm font-medium transition-colors ${selectedCategory === null ? 'bg-white/[0.1] text-white' : 'bg-transparent text-white/50 hover:text-white/90'}`}
+              className={`whitespace-nowrap px-3 py-1 rounded-[8px] text-xs font-medium transition-colors ${selectedCategory === null ? 'bg-white/[0.08] text-white' : 'bg-transparent text-white/40 hover:text-white/70'}`}
             >
               全部
             </button>
@@ -196,7 +230,7 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
               <button 
                 key={c.id}
                 onClick={() => setSelectedCategory(c.id)}
-                className={`whitespace-nowrap px-4 py-1.5 rounded-[12px] text-sm font-medium transition-colors ${selectedCategory === c.id ? 'bg-white/[0.1] text-white' : 'bg-transparent text-white/50 hover:text-white/90'}`}
+                className={`whitespace-nowrap px-3 py-1 rounded-[8px] text-xs font-medium transition-colors ${selectedCategory === c.id ? 'bg-white/[0.08] text-white' : 'bg-transparent text-white/40 hover:text-white/70'}`}
               >
                 {c.name}
               </button>
@@ -204,166 +238,202 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 overflow-y-auto p-3 space-y-1">
           {filteredPrompts.map(prompt => (
             <button
               key={prompt.id}
-              onClick={() => onSelectPrompt(prompt.id)}
-              className={`w-full text-left p-4 rounded-[12px] transition-all duration-300 ${selectedPromptId === prompt.id ? 'bg-white/[0.05] shadow-[0_4px_12px_rgba(0,0,0,0.05)]' : 'bg-transparent hover:bg-white/[0.02]'}`}
+              onClick={() => handleSelectPromptWithReset(prompt.id)}
+              className={`w-full text-left p-3 rounded-[8px] transition-all duration-200 ${selectedPromptId === prompt.id ? 'bg-white/[0.06]' : 'bg-transparent hover:bg-white/[0.02]'}`}
             >
-               <div className="font-medium text-[15px] text-white line-clamp-1">{prompt.title}</div>
-              <div className="text-[13px] text-white/50 mt-2 flex items-center gap-2">
+               <div className="font-medium text-[14px] text-white line-clamp-1">{prompt.title}</div>
+              <div className="text-[12px] text-white/40 mt-1.5 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 font-mono">
-                  <Command size={12} />
-                  {prompt.command}
+                  <Command size={11} />
+                  {prompt.command || '未设置'}
                 </span>
-                <span className="opacity-40">•</span>
-                <span>{prompt.style}</span>
+                {prompt.style && (
+                  <>
+                    <span className="opacity-30">·</span>
+                    <span className="truncate">{prompt.style}</span>
+                  </>
+                )}
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Right Column: Editor & Timeline */}
+      {/* Right Column: Editor */}
       {selectedPrompt ? (
-        <div className="flex-1 flex min-w-0 bg-[#121212]/80 backdrop-blur-[20px]">
-          <div className="flex-1 flex flex-col min-w-0 border-r border-white/[0.05] relative">
-            <div className="px-12 py-10 border-b border-white/[0.05]">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-[28px] font-bold tracking-tight text-white mb-2">{selectedPrompt.title}</h1>
-                  <div className="flex items-center gap-6 mt-4 text-[14px] text-white/50">
-                    <span className="font-mono text-white/80">
-                      /{selectedPrompt.command}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Tag size={16} className="text-white/40" />
-                      自动参数: <span className="text-white">{selectedPrompt.variables.length}</span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Target size={16} className="text-white/40" />
-                      执行风格: <span className="text-white">{selectedPrompt.style}</span>
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <button 
-                    onClick={handleSaveSnapshot}
-                    className="btn-primary"
-                  >
-                    <Save size={18} />
-                    保存快照
-                  </button>
-                  {onDeletePrompt && (
-                    <button 
-                      onClick={() => {
-                        if (confirm(`确定要删除「${selectedPrompt.title}」吗？此操作不可撤销。`)) {
-                          onDeletePrompt(selectedPrompt.id);
-                        }
-                      }}
-                      className="btn-secondary text-white/40 hover:text-red-400 hover:border-red-400/30"
-                      title="删除此提示词"
-                    >
-                      <Trash2 size={18} />
-                      删除
-                    </button>
+        <div className="flex-1 flex min-w-0 bg-[#0F0F10]">
+          <div className="flex-1 flex flex-col min-w-0 border-r border-white/[0.03] relative">
+            {/* Header */}
+            <div className="px-8 py-5 border-b border-white/[0.03] flex items-center justify-between">
+              <div className="flex items-center gap-4 min-w-0">
+                <input
+                  type="text"
+                  value={selectedPrompt.title}
+                  onChange={e => onUpdatePrompt({ ...selectedPrompt, title: e.target.value })}
+                  className="bg-transparent text-lg font-bold text-white outline-none border-b border-transparent hover:border-white/[0.1] focus:border-[#D4AF37] transition-colors min-w-0 w-[200px]"
+                  placeholder="未命名提示词"
+                />
+                <div className="flex items-center gap-2 text-[13px] text-white/30">
+                  <span className="font-mono text-white/50">/{selectedPrompt.command || '?'}</span>
+                  {selectedPrompt.variables.length > 0 && (
+                    <span className="text-white/30">{selectedPrompt.variables.length} 变量</span>
                   )}
                 </div>
               </div>
-              
-              <div className="mt-8 flex gap-3">
-                {selectedPrompt.bestFor.map((tag, i) => (
-                  <span key={i} className="text-[13px] px-3 py-1.5 rounded-[6px] bg-white/[0.03] text-white/70">
-                    {tag}
-                  </span>
-                ))}
+              <div className="flex items-center gap-3">
+                {/* 编辑 / 运行 切换 */}
+                <div className="flex bg-white/[0.04] rounded-[6px] p-0.5">
+                  <button
+                    onClick={() => setEditMode('edit')}
+                    className={`px-3 py-1.5 text-[13px] font-medium rounded-[4px] transition-colors ${editMode === 'edit' ? 'bg-white/[0.08] text-white' : 'text-white/40 hover:text-white/70'}`}
+                  >
+                    编辑
+                  </button>
+                  <button
+                    onClick={() => { setEditMode('run'); setRunValues({}); }}
+                    className={`px-3 py-1.5 text-[13px] font-medium rounded-[4px] transition-colors ${editMode === 'run' ? 'bg-white/[0.08] text-white' : 'text-white/40 hover:text-white/70'}`}
+                  >
+                    运行
+                  </button>
+                </div>
+                <button onClick={handleSaveSnapshot} className="btn-secondary text-[13px] h-[32px] px-3" title="保存版本">
+                  <Save size={14} />
+                  版本
+                </button>
+                <button
+                  onClick={() => setTimelineOpen(!timelineOpen)}
+                  className={`btn-icon ${timelineOpen ? 'text-white/70' : 'text-white/30'}`}
+                  title="版本历史"
+                >
+                  <History size={16} />
+                </button>
+                {onDeletePrompt && (
+                  <button 
+                    onClick={() => { if (confirm(`确定要删除「${selectedPrompt.title}」吗？`)) onDeletePrompt(selectedPrompt.id); }}
+                    className="btn-icon text-white/20 hover:text-red-400"
+                    title="删除"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
             </div>
             
-            <div className="flex-1 p-12 overflow-y-auto relative">
-              <h3 className="text-[13px] font-bold text-white/40 uppercase tracking-widest mb-6">底层模板 (Template)</h3>
-              <div className="relative w-full h-[600px] font-sans text-[15px] leading-[1.6] bg-white/[0.01] border border-white/[0.04] rounded-[16px] p-8 overflow-hidden subtle-shadow-2">
-                <div 
-                  className="absolute inset-0 p-8 pointer-events-none whitespace-pre-wrap break-words text-transparent font-sans"
-                  aria-hidden="true"
-                >
-                  {selectedPrompt.template.split(/({{.*?}})/g).map((part, i) => {
-                    if (part.startsWith('{{') && part.endsWith('}}')) {
-                      return <span key={i} className="px-2 py-0.5 bg-[#D4AF37]/10 text-transparent border border-[#D4AF37]/20 rounded-[6px] text-[14px] mx-1 leading-none align-baseline inline-block font-mono">{part}</span>;
-                    }
-                    return <span key={i}>{part}</span>;
-                  })}
+            {/* Editor Body */}
+            <div className="flex-1 overflow-y-auto">
+              {editMode === 'edit' ? (
+                <div className="h-full p-8">
+                  <div className="relative w-full h-full font-sans text-[15px] leading-[1.7] rounded-[8px] overflow-hidden">
+                    {/* Variable highlight overlay */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none whitespace-pre-wrap break-words text-transparent font-sans"
+                      aria-hidden="true"
+                    >
+                      {selectedPrompt.template.split(/({{.*?}})/g).map((part, i) => {
+                        if (part.startsWith('{{') && part.endsWith('}}')) {
+                          return <span key={i} className="px-1.5 py-0.5 bg-[#D4AF37]/15 text-transparent border border-[#D4AF37]/25 rounded-[4px] text-[14px] mx-0.5 leading-none align-baseline inline-block font-mono">{part}</span>;
+                        }
+                        return <span key={i}>{part}</span>;
+                      })}
+                      {'\n'}
+                    </div>
+                    
+                    <textarea
+                      value={selectedPrompt.template}
+                      onChange={e => handleContentChange(e.target.value)}
+                      className="absolute inset-0 w-full h-full resize-none bg-transparent outline-none text-white/90 caret-[#D4AF37] font-sans p-0"
+                      spellCheck={false}
+                      placeholder="在此输入提示词模板...&#10;&#10;使用 {{变量名}} 定义占位符，例如：&#10;你是一个专业翻译。请将以下内容翻译为 {{语言}}：&#10;{{内容}}"
+                    />
+                  </div>
                 </div>
-                
-                <textarea
-                  value={selectedPrompt.template}
-                  onChange={e => handleContentChange(e.target.value)}
-                  className="absolute inset-0 p-8 w-full h-full resize-none bg-transparent outline-none text-white/90 caret-[#D4AF37] font-sans"
-                  spellCheck={false}
-                  placeholder="输入提示词底层结构，使用 {{参数名}} 来定义需要引擎自动推断的变量..."
-                />
-              </div>
+              ) : (
+                /* 运行模式：变量表单 + 终预览 */
+                <div className="p-8 space-y-6 max-w-[960px] mx-auto">
+                  {selectedPrompt.variables.length === 0 ? (
+                    <div className="text-white/30 text-[14px] py-12 text-center">
+                      该提示词没有定义变量，无需填写参数。
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <p className="text-[13px] text-white/40">填写变量后即可复制完整的提示词</p>
+                      {selectedPrompt.variables.map(v => (
+                        <div key={v}>
+                          <label className="text-[12px] font-medium text-white/40 block mb-2">{`{{${v}}}`}</label>
+                          <textarea
+                            value={runValues[v] || ''}
+                            onChange={e => setRunValues(prev => ({ ...prev, [v]: e.target.value }))}
+                            className="input-card w-full min-h-[60px] resize-none"
+                            placeholder={`输入 ${v}...`}
+                            rows={2}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 组装预览 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-[12px] font-medium text-white/30 uppercase tracking-widest">最终提示词</label>
+                      <button
+                        onClick={handleCopyAssembled}
+                        className="text-[12px] text-[#D4AF37] hover:opacity-80 transition-opacity flex items-center gap-1"
+                      >
+                        {copyToast ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                    <div className="bg-[#151517] border border-white/[0.04] rounded-[8px] p-5 font-sans text-[14px] leading-[1.7] whitespace-pre-wrap text-white/80">
+                      {assembledPrompt || selectedPrompt.template}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className={`bg-white/[0.01] flex flex-col shrink-0 transition-all duration-300 ${timelineOpen ? 'w-[320px] max-w-[320px]' : 'w-0 overflow-hidden border-l border-white/[0.05]'}`}>
+          {/* Version Panel (Drawer) */}
+          <div className={`bg-[#151517] flex flex-col shrink-0 transition-all duration-300 ${timelineOpen ? 'w-[280px] max-w-[280px] border-l border-white/[0.04]' : 'w-0 overflow-hidden'}`}>
             {timelineOpen && (
               <>
-                <div className="p-8 border-b border-white/[0.05] flex items-center justify-between text-[15px] font-bold text-white">
-                  <div className="flex items-center gap-3">
-                    <History size={18} className="text-[#D4AF37]" />
-                    版本追踪
-                  </div>
-                  <button
-                    onClick={() => setTimelineOpen(false)}
-                    className="btn-icon"
-                    title="收起面板"
-                  >
-                    <PanelRightClose size={16} />
+                <div className="px-6 py-4 border-b border-white/[0.04] flex items-center justify-between text-[14px] font-medium text-white">
+                  版本历史
+                  <button onClick={() => setTimelineOpen(false)} className="btn-icon">
+                    <PanelRightClose size={14} />
                   </button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-8 space-y-8 relative">
-                  <div className="absolute left-[39px] top-12 bottom-0 w-[1px] bg-white/[0.05]"></div>
-                  
-                  <div className="relative pl-12 line-clamp-1">
-                    <div className="absolute -left-[3px] top-[6px] w-[9px] h-[9px] rounded-full bg-[#D4AF37] ring-4 ring-[#121212] z-10"></div>
-                    <div className="text-[14px] font-medium text-white">当前未命名版本</div>
-                    <div className="text-[12px] text-white/40 mt-1">修改未保存...</div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  <div className="text-[13px] text-white/50">
+                    当前版本 · {new Date().toLocaleDateString()}
                   </div>
-                  {selectedPrompt.history.map((ver, idx) => (
-                    <div key={ver.id} className="relative pl-12 opacity-60 hover:opacity-100 transition-opacity">
-                      <div className="absolute -left-[2px] top-[6px] w-[7px] h-[7px] rounded-full bg-white/20 ring-4 ring-[#121212] z-10"></div>
-                      <div className="text-[14px] font-medium text-white flex items-center justify-between">
-                         历史版本 {selectedPrompt.history.length - idx}
+                  {selectedPrompt.history.length === 0 ? (
+                    <p className="text-[13px] text-white/20">暂无历史版本</p>
+                  ) : (
+                    selectedPrompt.history.map((ver, idx) => (
+                      <div key={ver.id} className="border-l border-white/[0.06] pl-4">
+                        <div className="text-[13px] text-white/50 font-mono">{new Date(ver.timestamp).toLocaleString()}</div>
+                        <button 
+                          onClick={() => handleRestore(ver.template)}
+                          className="text-[12px] text-[#D4AF37] hover:opacity-80 mt-2 transition-opacity"
+                        >
+                          回滚至此版本
+                        </button>
                       </div>
-                      <div className="text-[12px] font-mono text-white/40 mt-1">{new Date(ver.timestamp).toLocaleString()}</div>
-                      <button 
-                        onClick={() => handleRestore(ver.template)}
-                        className="text-[12px] bg-transparent hover:bg-white/[0.05] border border-white/[0.1] text-white/70 px-4 py-2 rounded-[6px] mt-4 transition-colors active:scale-95"
-                      >
-                        回滚至此版本
-                      </button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </>
-            )}
-            {!timelineOpen && (
-              <button
-                onClick={() => setTimelineOpen(true)}
-                className="h-full flex items-center justify-center text-white/30 hover:text-white/60 transition-colors p-2"
-                title="展开版本追踪"
-              >
-                <PanelRight size={18} />
-              </button>
             )}
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center bg-transparent flex-col gap-6 opacity-30">
-          <Command size={48} className="text-white" />
-          <p className="text-[16px] text-white font-medium">选择一个资产进行管理</p>
+        <div className="flex-1 flex items-center justify-center flex-col gap-4 opacity-20">
+          <Command size={40} className="text-white" />
+          <p className="text-[14px] text-white font-medium">选择提示词，或点击 [+ 新建提示词] 开始</p>
         </div>
       )}
 

@@ -7,32 +7,32 @@
 
 @layer base {
   body {
-    @apply bg-[#121212] text-[#FAFAFA] font-sans antialiased selection:bg-white/20;
+    @apply bg-[#0F0F10] text-[#FAFAFA] font-sans antialiased selection:bg-white/20;
     overflow: hidden;
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-[#1A1A1A]/60 backdrop-blur-[40px] border border-white/[0.03];
+    @apply bg-[#151517] border border-white/[0.03];
   }
   .glass-card {
-    @apply bg-white/[0.02] backdrop-blur-[20px] rounded-[16px] border border-white/[0.04] shadow-[0_10px_20px_rgba(0,0,0,0.03),0_20px_40px_rgba(0,0,0,0.04)];
+    @apply bg-[#151517] rounded-[12px] border border-white/[0.04];
   }
   .btn-primary {
-    @apply h-[40px] px-6 rounded-[8px] bg-[#D4AF37] text-[#121212] font-medium transition-all duration-300 ease-in-out hover:scale-[1.02] hover:opacity-90 active:scale-100 flex items-center justify-center gap-2;
+    @apply h-[40px] px-6 rounded-[8px] bg-[#D4AF37] text-[#121212] font-medium transition-all duration-200 ease-in-out hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2;
   }
   .btn-secondary {
-    @apply h-[40px] px-6 rounded-[8px] border border-white/[0.1] bg-transparent text-white font-medium transition-all duration-300 ease-in-out hover:scale-[1.02] hover:bg-white/[0.05] active:scale-100 flex items-center justify-center gap-2;
+    @apply h-[40px] px-6 rounded-[8px] border border-white/[0.08] bg-transparent text-white font-medium transition-all duration-200 ease-in-out hover:bg-white/[0.04] active:scale-[0.98] flex items-center justify-center gap-2;
   }
   .btn-icon {
-    @apply p-2 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.05] transition-all duration-300 ease-in-out;
+    @apply p-2 rounded-[6px] text-white/40 hover:text-white hover:bg-white/[0.05] transition-all duration-200 ease-in-out;
   }
   .input-minimal {
-    @apply h-[40px] px-4 bg-transparent border-b border-white/[0.1] text-white placeholder-white/30 focus:outline-none focus:border-[#D4AF37] transition-colors duration-300 rounded-none w-full;
+    @apply h-[40px] px-4 bg-transparent border-b border-white/[0.08] text-white placeholder-white/25 focus:outline-none focus:border-[#D4AF37] transition-colors duration-200 rounded-none w-full;
   }
   .input-card {
-    @apply bg-[#1A1A1A]/80 border border-white/[0.04] rounded-[12px] px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/[0.1] transition-all duration-300;
+    @apply bg-[#151517] border border-white/[0.04] rounded-[8px] px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/[0.1] transition-all duration-200;
   }
   .text-title {
     @apply font-bold tracking-tight text-white;
