@@ -612,7 +612,7 @@ PromptX 浏览器扩展让你**在任意网页输入框中按 `\` 键**即可唤
 #### 方式二：开发者模式手动加载（当前可用）
 
 1. 下载扩展文件夹  
-   从 [GitHub 仓库 `extension/` 目录](https://github.com/T01Studio/PromptX/tree/master/extension) 下载整个 `extension` 文件夹到本地
+   从 [GitHub 仓库 `extension/` 目录](https://github.com/nicoliustudio/PromptX/tree/master/extension) 下载整个 `extension` 文件夹到本地
 
 2. 打开 Chrome 扩展管理页  
    地址栏输入 `chrome://extensions/`，回车
@@ -797,11 +797,11 @@ A：当前版本扩展内置了独立提示词库（`prompts.js`）。后续版�
 | 项目 | 内容 |
 |------|------|
 | 名称 | PromptX（灵犀） |
-| 网站 | [https://t01studio.github.io/PromptX/](https://t01studio.github.io/PromptX/) |
-| 仓库 | [https://github.com/T01Studio/PromptX](https://github.com/T01Studio/PromptX) |
+| 网站 | [https://nicoliustudio.github.io/PromptX/](https://nicoliustudio.github.io/PromptX/) |
+| 仓库 | [https://github.com/nicoliustudio/PromptX](https://github.com/nicoliustudio/PromptX) |
 | 许可证 | MIT License |
 | 技术栈 | React 19 + TypeScript + Tailwind CSS + Vite |
 
 ---
 
-> 如有问题或建议，欢迎在 [GitHub Issues](https://github.com/T01Studio/PromptX/issues) 提出。
+> 如有问题或建议，欢迎在 [GitHub Issues](https://github.com/nicoliustudio/PromptX/issues) 提出。

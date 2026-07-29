@@ -1,13 +1,13 @@
 # PromptX (灵犀) 🚀
 
-[![License](https://img.shields.io/github/license/T01Studio/PromptX)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/T01Studio/PromptX#参与贡献)
+[![License](https://img.shields.io/github/license/nicoliustudio/PromptX)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/nicoliustudio/PromptX#参与贡献)
 
 PromptX 是一款致力于减少人机交互摩擦的轻量级辅助工具。我们认为，**用户不仅仅是在管理提示词（Prompts），而是在不断将自己的工作方法（Methodology）沉淀为系统化的能力。**
 
 通过高效的全局触发、无感变量填充与健壮的网页输入框注入技术，PromptX 旨在帮助创作者、开发者与研究者构建属于自己的"数字外挂大脑"。
 
-> **🚀 在线体验：**[https://t01studio.github.io/PromptX/](https://t01studio.github.io/PromptX/)  
+> **🚀 在线体验：**[https://nicoliustudio.github.io/PromptX/](https://nicoliustudio.github.io/PromptX/)  
 > **📖 使用文档：**[完整使用指南](docs/user-guide.md)（含小白上手教程和实战案例）
 
 ---
