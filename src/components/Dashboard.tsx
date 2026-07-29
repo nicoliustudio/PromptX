@@ -277,10 +277,17 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
                   className="bg-transparent text-lg font-bold text-white outline-none border-b border-transparent hover:border-white/[0.1] focus:border-[#D4AF37] transition-colors min-w-0 w-[200px]"
                   placeholder="未命名提示词"
                 />
-                <div className="flex items-center gap-2 text-[13px] text-white/30">
-                  <span className="font-mono text-white/50">/{selectedPrompt.command || '?'}</span>
+                <div className="flex items-center gap-2 text-[13px]">
+                  <span className="text-white/30 font-mono">/</span>
+                  <input
+                    type="text"
+                    value={selectedPrompt.command}
+                    onChange={e => onUpdatePrompt({ ...selectedPrompt, command: e.target.value })}
+                    className="bg-transparent text-white/60 font-mono text-[13px] outline-none border-b border-transparent hover:border-white/[0.1] focus:border-[#D4AF37] transition-colors w-[100px]"
+                    placeholder="快捷命令"
+                  />
                   {selectedPrompt.variables.length > 0 && (
-                    <span className="text-white/30">{selectedPrompt.variables.length} 变量</span>
+                    <span className="text-white/30 ml-1">{selectedPrompt.variables.length} 变量</span>
                   )}
                 </div>
               </div>
