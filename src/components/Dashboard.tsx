@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Category, Prompt } from '../types';
-import { Search, Plus, History, Command, Save, Tag, Target, CheckCircle2, Loader2, Bot, Sparkles, X, PanelRightClose, PanelRight, Trash2 } from 'lucide-react';
+import { Search, Plus, History, Command, Save, Tag, Target, CheckCircle2, Loader2, Bot, Sparkles, X, PanelRightClose, PanelRight, Trash2, Variable } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface DashboardProps {
@@ -25,6 +25,73 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedPrompt, setExtractedPrompt] = useState<Partial<Prompt> | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(true);
+
+  // ── 手动创建表单状态 ──
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualCommand, setManualCommand] = useState('');
+  const [manualCategoryId, setManualCategoryId] = useState('');
+  const [manualTemplate, setManualTemplate] = useState('');
+  const [manualStyle, setManualStyle] = useState('');
+  const [manualBestFor, setManualBestFor] = useState('');
+  const [manualError, setManualError] = useState('');
+
+  // 自动从模板中提取 {{变量}}
+  const manualVariables = useMemo(() => {
+    const matches = manualTemplate.match(/\{\{(.+?)\}\}/g);
+    if (!matches) return [];
+    return [...new Set(matches.map(m => m.slice(2, -2).trim()))];
+  }, [manualTemplate]);
+
+  const resetManualForm = () => {
+    setManualTitle('');
+    setManualCommand('');
+    setManualCategoryId('');
+    setManualTemplate('');
+    setManualStyle('');
+    setManualBestFor('');
+    setManualError('');
+  };
+
+  const handleManualCreate = () => {
+    // 校验必填字段
+    if (!manualTitle.trim()) {
+      setManualError('请输入提示词名称');
+      return;
+    }
+    if (!manualCommand.trim()) {
+      setManualError('请输入唤起命令');
+      return;
+    }
+    if (!/^[a-z0-9_]+$/i.test(manualCommand.trim())) {
+      setManualError('唤起命令只能包含英文字母、数字和下划线');
+      return;
+    }
+    // 检查命令是否重复
+    if (prompts.some(p => p.command.toLowerCase() === manualCommand.trim().toLowerCase())) {
+      setManualError(`唤起命令 "${manualCommand.trim()}" 已被使用，请换一个`);
+      return;
+    }
+    if (!manualTemplate.trim()) {
+      setManualError('请输入提示词模板');
+      return;
+    }
+    const categoryId = manualCategoryId || categories[0]?.id || 'cat-1';
+
+    onCreatePrompt?.({
+      id: 'p-' + Date.now(),
+      title: manualTitle.trim(),
+      command: manualCommand.trim(),
+      categoryId,
+      template: manualTemplate.trim(),
+      variables: manualVariables,
+      style: manualStyle.trim() || '通用',
+      bestFor: manualBestFor.trim() ? manualBestFor.split(/[,，]/).map(s => s.trim()).filter(Boolean) : [],
+      history: [],
+    });
+
+    resetManualForm();
+    setIsAddingPrompt(false);
+  };
 
   const filteredPrompts = prompts.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || p.command.toLowerCase().includes(searchQuery.toLowerCase());
@@ -101,7 +168,7 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
           <div className="flex items-center justify-between">
             <h2 className="text-title text-[18px]">资产管理</h2>
             <button 
-              onClick={() => { setIsAddingPrompt(true); setExtractedPrompt(null); setExtractText(''); setIsExtracting(false); }}
+              onClick={() => { setIsAddingPrompt(true); setExtractedPrompt(null); setExtractText(''); setIsExtracting(false); resetManualForm(); }}
               className="btn-icon"
               title="新增系统能力"
             >
@@ -341,9 +408,128 @@ export default function Dashboard({ prompts, categories, selectedPromptId, onSel
 
               <div className="p-8 overflow-y-auto flex-1">
                 {addMode === 'manual' ? (
-                  <div className="flex flex-col items-center justify-center h-48 text-white/30 text-[14px]">
-                    <p>传统表单输入模版在此处渲染</p>
-                    <p className="mt-2 text-[12px] opacity-70">(演示重点：请切换至「对话提纯」体验核心特性)</p>
+                  <div className="space-y-6">
+                    <div className="text-[14px] text-white/60 leading-[1.6]">
+                      <strong className="text-white block mb-2 font-medium">手动创建提示词</strong>
+                      填入基本信息并编写模板，系统会自动识别 <code className="text-[#D4AF37] bg-[#D4AF37]/10 px-1.5 py-0.5 rounded-[4px] text-[13px]">{'{{变量}}'}</code>。
+                    </div>
+
+                    {manualError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-[13px] text-red-400 bg-red-400/10 border border-red-400/20 rounded-[8px] px-4 py-3"
+                      >
+                        {manualError}
+                      </motion.div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-5">
+                      <div>
+                        <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">
+                          提示词名称 <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={manualTitle}
+                          onChange={e => { setManualTitle(e.target.value); setManualError(''); }}
+                          placeholder="例如：小红书种草文案"
+                          className="input-card w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">
+                          唤起命令 <span className="text-red-400">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-mono text-[14px]">/</span>
+                          <input
+                            type="text"
+                            value={manualCommand}
+                            onChange={e => { setManualCommand(e.target.value); setManualError(''); }}
+                            placeholder="xhs"
+                            className="input-card w-full pl-8 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">所属分类</label>
+                      <select
+                        value={manualCategoryId}
+                        onChange={e => setManualCategoryId(e.target.value)}
+                        className="input-card w-full appearance-none cursor-pointer"
+                      >
+                        {categories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-5">
+                      <div>
+                        <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">执行风格</label>
+                        <input
+                          type="text"
+                          value={manualStyle}
+                          onChange={e => setManualStyle(e.target.value)}
+                          placeholder="例如：专业严谨"
+                          className="input-card w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">适用场景</label>
+                        <input
+                          type="text"
+                          value={manualBestFor}
+                          onChange={e => setManualBestFor(e.target.value)}
+                          placeholder="用逗号分隔，例如：探店,美妆,生活方式"
+                          className="input-card w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">
+                        提示词模板 <span className="text-red-400">*</span>
+                        {manualVariables.length > 0 && (
+                          <span className="ml-2 text-[#D4AF37] font-normal normal-case tracking-normal">
+                            · 已识别 {manualVariables.length} 个变量
+                          </span>
+                        )}
+                      </label>
+                      <textarea
+                        value={manualTemplate}
+                        onChange={e => { setManualTemplate(e.target.value); setManualError(''); }}
+                        placeholder={'使用 {{变量名}} 来定义占位符\n\n例如：\n你是一个小红书爆款文案专家。请为主题：{{topic}} 撰写一篇种草文案。\n风格要求：{{tone}}\n字数：{{length}}字'}
+                        className="input-card w-full h-48 font-mono text-[13px] leading-[1.7] resize-none"
+                        spellCheck={false}
+                      />
+                    </div>
+
+                    {manualVariables.length > 0 && (
+                      <div>
+                        <label className="text-[12px] font-bold text-white/30 uppercase tracking-widest block mb-2">
+                          <Variable size={14} className="inline mr-1.5 -mt-0.5" />
+                          自动变量
+                        </label>
+                        <div className="flex gap-2 flex-wrap">
+                          {manualVariables.map((v, i) => (
+                            <span key={i} className="px-3 py-1.5 bg-[#D4AF37]/10 rounded-[6px] text-[13px] text-[#D4AF37] font-mono border border-[#D4AF37]/20">
+                              {`{{${v}}}`}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleManualCreate}
+                      className="btn-primary w-full"
+                    >
+                      保存至资产库
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-8">
