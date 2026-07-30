@@ -1,19 +1,17 @@
 /* ============================================
-   PromptX - content.js  v5.0
+   PromptX - content.js  v5.1
    极简架构：\\ 触发 → 菜单 → 点击/Enter → 注入
+   异步加载线上提示词，支持实时同步
    ============================================ */
 
 (function () {
   'use strict';
 
-  // ====== 健康自检（DOM 插入方式，不受 console 覆盖影响） ======
-  try {
-    if (typeof PROMPTX_PROMPTS === 'undefined' || typeof detectPlatform !== 'function') {
-      return;
-    }
-  } catch (e) { return; }
+  // ====== 全局提示词（异步加载后填充） ======
+  var PROMPTS = [];
+  var READY = false;
 
-  // ====== 状态（全部 var 避免 let/const 兼容问题） ======
+  // ====== 状态 ======
   var isActive = false;
   var curQuery = '';
   var selIdx = 0;
@@ -95,9 +93,9 @@
   }
 
   function filterQ(q) {
-    if (!q) return PROMPTX_PROMPTS;
+    if (!q) return PROMPTS;
     q = q.toLowerCase();
-    return PROMPTX_PROMPTS.filter(function (p) {
+    return PROMPTS.filter(function (p) {
       return p.command.toLowerCase().indexOf(q) !== -1 ||
              p.title.toLowerCase().indexOf(q) !== -1 ||
              (p.category && p.category.toLowerCase().indexOf(q) !== -1);
@@ -134,7 +132,7 @@
     // Header
     var h = document.createElement('div');
     h.className = 'px-header';
-    h.innerHTML = '<span class="px-header-dot"></span>PromptX 指令 · ' + PROMPTX_PROMPTS.length + ' 条';
+    h.innerHTML = '<span class="px-header-dot"></span>PromptX 指令 · ' + PROMPTS.length + ' 条';
     dropdown.appendChild(h);
 
     if (items.length === 0) {
@@ -178,7 +176,7 @@
           it.appendChild(ic);
           it.appendChild(bd);
 
-          // ★ 点击事件（直接绑，不用闭包 + 箭头函数避免兼容问题）
+          // 点击事件
           it.pxPrompt = p;
           it.addEventListener('mousedown', function (ev) {
             ev.preventDefault();
@@ -243,7 +241,6 @@
         }, 300);
       }
     }, d);
-    // 清理旧 toast（动画结束后）
     if (old) setTimeout(function () { if (old.parentNode) old.remove(); }, 300);
   }
 
@@ -358,17 +355,15 @@
     div.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // ★ 动态搜索下一个 {{变量}}（从当前光标位置开始）
+  // 动态搜索下一个 {{变量}}
   function findNextVar(el) {
     if (el.tagName !== 'TEXTAREA' && el.tagName !== 'INPUT') return null;
     var val = el.value;
     var pos = el.selectionEnd || el.selectionStart || 0;
-    // 从当前光标往后搜
     var re = /\{\{([^}]+)\}\}/g;
     re.lastIndex = pos;
     var m = re.exec(val);
     if (m) return { s: m.index, e: m.index + m[0].length };
-    // 没找到 → 从头循环
     re.lastIndex = 0;
     m = re.exec(val);
     if (m) return { s: m.index, e: m.index + m[0].length };
@@ -377,20 +372,17 @@
 
   function setupTab(input, prompt) {
     if (input.tagName !== 'TEXTAREA' && input.tagName !== 'INPUT') return;
-    // 插入后光标在模板末尾，找到第一个变量并选中
     var v = findNextVarInRange(input, input.selectionStart - (prompt.template || '').length, prompt.template || '');
     if (!v) {
-      // 从输入框全文中找第一个 {{...}}
       v = findNextVar(input);
     }
     if (v) {
-      tabVars = [{ s: v.s, e: v.e }]; // 标记有变量可用
+      tabVars = [{ s: v.s, e: v.e }];
       input.setSelectionRange(v.s, v.e);
       input.focus();
     }
   }
 
-  // 在指定范围内找所有变量，选中当前位置之后第一个
   function findNextVarInRange(el, rangeStart, templateText) {
     if (!templateText || rangeStart < 0) return null;
     var re = /\{\{([^}]+)\}\}/g;
@@ -415,97 +407,127 @@
   }
 
   // ====== 事件监听 ======
-  document.addEventListener('keydown', function (e) {
-    var t = e.target;
+  function setupEventListeners() {
+    document.addEventListener('keydown', function (e) {
+      var t = e.target;
 
-    // ★ Tab 跳变量：仅当输入框中还有 {{...}} 时才拦截
-    if (e.key === 'Tab' && !e.shiftKey && isChat(t)) {
-      if (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') {
-        var val = t.value;
-        if (/\{\{[^}]+\}\}/.test(val)) {
+      // Tab 跳变量
+      if (e.key === 'Tab' && !e.shiftKey && isChat(t)) {
+        if (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') {
+          var val = t.value;
+          if (/\{\{[^}]+\}\}/.test(val)) {
+            e.preventDefault();
+            jumpVar(t);
+            return;
+          }
+        }
+      }
+
+      if (!isChat(t)) return;
+
+      // 菜单键盘
+      if (isActive) {
+        if (e.key === 'ArrowDown') {
           e.preventDefault();
-          jumpVar(t);
+          selIdx = (selIdx + 1) % Math.max(1, filtered.length);
+          render(filtered, selIdx);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selIdx = (selIdx - 1 + filtered.length) % Math.max(1, filtered.length);
+          render(filtered, selIdx);
+          return;
+        }
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          if (filtered[selIdx]) doSelect(filtered[selIdx]);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          destroy();
           return;
         }
       }
-    }
 
-    if (!isChat(t)) return;
+      // \\ 触发
+      if (e.key === '\\') {
+        (function (tgt) {
+          setTimeout(function () {
+            if (!READY) return;
+            if (activeInput !== tgt) destroy();
+            activeInput = tgt;
+            var q = getQuery(tgt);
+            if (q !== null && q !== undefined) {
+              snap(tgt);
+              isActive = true;
+              update(q);
+            }
+          }, 0);
+        })(t);
+      }
+    }, true);
 
-    // 菜单键盘
-    if (isActive) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        selIdx = (selIdx + 1) % Math.max(1, filtered.length);
-        render(filtered, selIdx);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        selIdx = (selIdx - 1 + filtered.length) % Math.max(1, filtered.length);
-        render(filtered, selIdx);
-        return;
-      }
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        if (filtered[selIdx]) doSelect(filtered[selIdx]);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        destroy();
-        return;
-      }
-    }
+    // 实时更新
+    document.addEventListener('input', function (e) {
+      var t = e.target;
+      if (!isActive || t !== activeInput) return;
+      if (!isChat(t)) return;
+      var q = getQuery(t);
+      if (q === null) { destroy(); return; }
+      update(q);
+      if (isActive) snap(t);
+    }, true);
 
-    // \\ 触发
-    if (e.key === '\\') {
-      (function (tgt) {
+    // 失焦延迟关闭
+    document.addEventListener('blur', function (e) {
+      var t = e.target;
+      if (!isActive) return;
+      if (t === activeInput || t === savedInput) {
         setTimeout(function () {
-          if (activeInput !== tgt) destroy();
-          activeInput = tgt;
-          var q = getQuery(tgt);
-          if (q !== null && q !== undefined) {
-            snap(tgt);
-            isActive = true;
-            update(q);
+          var ae = document.activeElement;
+          if (isActive && ae !== activeInput && ae !== savedInput) {
+            destroy();
           }
-        }, 0);
-      })(t);
+        }, 300);
+      }
+    }, true);
+
+    // 点击外部关闭
+    document.addEventListener('mousedown', function (e) {
+      if (!isActive) return;
+      if (container && container.contains(e.target)) return;
+      if (e.target === activeInput || e.target === savedInput) return;
+      destroy();
+    }, true);
+  }
+
+  // ====== 初始化：异步加载提示词 ======
+  function init() {
+    if (typeof loadPrompts !== 'function') {
+      console.warn('[PromptX] prompts.js 未加载，扩展可能未正确安装');
+      return;
     }
-  }, true);
 
-  // 实时更新
-  document.addEventListener('input', function (e) {
-    var t = e.target;
-    if (!isActive || t !== activeInput) return;
-    if (!isChat(t)) return;
-    var q = getQuery(t);
-    if (q === null) { destroy(); return; }
-    update(q);
-    if (isActive) snap(t);
-  }, true);
+    loadPrompts().then(function (prompts) {
+      PROMPTS = prompts;
+      READY = true;
+      setupEventListeners();
+    }).catch(function (err) {
+      console.error('[PromptX] 提示词加载失败:', err);
+      // 仍然尝试初始化，使用空数组
+      PROMPTS = [];
+      READY = true;
+      setupEventListeners();
+    });
+  }
 
-  // ★ 失焦延迟关闭（给点击事件 300ms 窗口）
-  document.addEventListener('blur', function (e) {
-    var t = e.target;
-    if (!isActive) return;
-    if (t === activeInput || t === savedInput) {
-      setTimeout(function () {
-        var ae = document.activeElement;
-        if (isActive && ae !== activeInput && ae !== savedInput) {
-          destroy();
-        }
-      }, 300);
-    }
-  }, true);
-
-  // 点击外部关闭
-  document.addEventListener('mousedown', function (e) {
-    if (!isActive) return;
-    if (container && container.contains(e.target)) return;
-    if (e.target === activeInput || e.target === savedInput) return;
-    destroy();
-  }, true);
+  // 启动
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 
 })();
