@@ -126,3 +126,94 @@ export function clearAllData(): void {
   localStorage.removeItem(PROMPTS_KEY);
   localStorage.removeItem(CATEGORIES_KEY);
 }
+
+// ── Publish to Extension (GitHub API) ──
+
+const GITHUB_API = 'https://api.github.com/repos/nicoliustudio/PromptX/contents/public/prompts.json';
+
+interface PublishResult {
+  success: boolean;
+  message: string;
+}
+
+export async function publishExtensionData(token: string): Promise<PublishResult> {
+  if (!token) {
+    return { success: false, message: '请先填入 GitHub Token。' };
+  }
+
+  const prompts = loadPrompts();
+  const categories = loadCategories();
+
+  if (prompts.length === 0) {
+    return { success: false, message: '提示词库为空，请先添加提示词。' };
+  }
+
+  // 构建 categoryId → name 映射
+  const catMap: Record<string, string> = {};
+  categories.forEach(c => { catMap[c.id] = c.name; });
+
+  // 生成 extension-compatible 格式
+  const extPrompts = prompts.map(p => ({
+    id: p.id,
+    title: p.title,
+    command: p.command,
+    category: catMap[p.categoryId] || '其他',
+    template: p.template,
+    variables: p.variables,
+  }));
+
+  const content = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    prompts: extPrompts,
+  };
+
+  const contentStr = JSON.stringify(content, null, 2);
+  const contentBase64 = btoa(unescape(encodeURIComponent(contentStr)));
+
+  try {
+    // Step 1: 获取当前文件 sha
+    const getRes = await fetch(GITHUB_API, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' },
+    });
+
+    let sha = '';
+    if (getRes.ok) {
+      const getData = await getRes.json();
+      sha = getData.sha || '';
+    }
+    // 文件不存在时 sha 为空（新建文件场景）
+
+    // Step 2: PUT 更新文件
+    const body = JSON.stringify({
+      message: 'chore: sync prompts.json from web app',
+      content: contentBase64,
+      ...(sha ? { sha } : {}),
+    });
+
+    const putRes = await fetch(GITHUB_API, {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github.v3+json',
+      },
+      body,
+    });
+
+    if (putRes.ok) {
+      return { success: true, message: `已发布 ${extPrompts.length} 条提示词！部署完成后扩展点"同步"即可更新。` };
+    }
+
+    const errData = await putRes.json().catch(() => ({}));
+    if (putRes.status === 401) {
+      return { success: false, message: 'Token 无效或已过期，请重新生成。' };
+    }
+    if (putRes.status === 404) {
+      return { success: false, message: '仓库不存在或 Token 无权限访问。' };
+    }
+    return { success: false, message: (errData as any).message || `GitHub API 返回 ${putRes.status}` };
+  } catch {
+    return { success: false, message: '网络请求失败，请检查网络连接。' };
+  }
+}

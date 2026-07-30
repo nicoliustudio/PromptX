@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { AISettings, AIProvider, PROVIDER_PRESETS } from '../types';
 import { loadSettings, saveSettings, clearSettings, maskApiKey } from '../store/settings';
-import { exportAll, downloadExport, importAll, clearAllData } from '../store/data';
+import { exportAll, downloadExport, importAll, clearAllData, publishExtensionData } from '../store/data';
 import type { ImportResult } from '../store/data';
-import { Shield, Key, Globe, Cpu, Trash2, CheckCircle2, AlertTriangle, Download, Upload, FileJson, RefreshCw } from 'lucide-react';
+import { Shield, Key, Globe, Cpu, Trash2, CheckCircle2, AlertTriangle, Download, Upload, FileJson, RefreshCw, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const PROVIDERS = Object.entries(PROVIDER_PRESETS) as [AIProvider, typeof PROVIDER_PRESETS[AIProvider]][];
@@ -14,6 +14,8 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,8 +41,20 @@ export default function Settings() {
   const handleClear = () => {
     if (confirm('确定要清除所有 API 配置吗？此操作不可撤销。')) {
       clearSettings();
-      setSettings({ provider: 'gemini', apiKey: '', baseURL: PROVIDER_PRESETS.gemini.baseURL, model: 'gemini-2.5-flash' });
+      setSettings({ provider: 'gemini', apiKey: '', baseURL: PROVIDER_PRESETS.gemini.baseURL, model: 'gemini-2.5-flash', githubToken: '' });
     }
+  };
+
+  const handlePublish = async () => {
+    if (!settings.githubToken) {
+      setPublishMsg({ ok: false, text: '请先填入 GitHub Token。' });
+      return;
+    }
+    setPublishing(true);
+    setPublishMsg(null);
+    const result = await publishExtensionData(settings.githubToken);
+    setPublishMsg({ ok: result.success, text: result.message });
+    setPublishing(false);
   };
 
   const handleExport = () => {
@@ -80,7 +94,7 @@ export default function Settings() {
     if (confirm('确定要清除所有本地数据（提示词、分类、API 配置）并恢复默认吗？此操作不可撤销。')) {
       clearSettings();
       clearAllData();
-      setSettings({ provider: 'gemini', apiKey: '', baseURL: PROVIDER_PRESETS.gemini.baseURL, model: 'gemini-2.5-flash' });
+      setSettings({ provider: 'gemini', apiKey: '', baseURL: PROVIDER_PRESETS.gemini.baseURL, model: 'gemini-2.5-flash', githubToken: '' });
       window.location.reload();
     }
   };
@@ -280,6 +294,51 @@ export default function Settings() {
                   <p>{importResult.error}</p>
                 </div>
               )}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Extension Sync */}
+        <div className="glass-card p-6 mb-6 space-y-5">
+          <div className="flex items-center gap-2 text-[13px] font-bold text-white/40 uppercase tracking-widest">
+            <Send size={14} />
+            扩展同步
+          </div>
+          <p className="text-[13px] text-white/50">
+            将当前提示词库发布到线上，浏览器扩展即可同步最新数据。需要 GitHub Personal Access Token（<code className="text-[#D4AF37]">repo</code> 权限）。
+          </p>
+          <div className="relative">
+            <input
+              type="password"
+              value={settings.githubToken}
+              onChange={e => setSettings(prev => ({ ...prev, githubToken: e.target.value }))}
+              placeholder="填入 GitHub Token..."
+              className="w-full input-card font-mono text-[14px]"
+            />
+          </div>
+          <button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="btn-primary w-full"
+          >
+            {publishing ? (
+              <RefreshCw size={18} className="animate-spin" />
+            ) : (
+              <Send size={18} />
+            )}
+            {publishing ? '发布中...' : '发布到扩展'}
+          </button>
+          {publishMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-4 rounded-[10px] border text-[13px] ${
+                publishMsg.ok
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/20 text-red-400'
+              }`}
+            >
+              {publishMsg.text}
             </motion.div>
           )}
         </div>

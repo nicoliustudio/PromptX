@@ -14,13 +14,14 @@ export function loadSettings(): AISettings {
           apiKey: parsed.apiKey,
           baseURL: parsed.baseURL || PROVIDER_PRESETS[parsed.provider as AIProvider]?.baseURL || '',
           model: parsed.model || '',
+          githubToken: parsed.githubToken || '',
         };
       }
     }
   } catch {
     // Ignore parse errors, fall through to defaults
   }
-  return { provider: 'gemini', apiKey: '', baseURL: PROVIDER_PRESETS.gemini.baseURL, model: 'gemini-2.5-flash' };
+  return { provider: 'gemini', apiKey: '', baseURL: PROVIDER_PRESETS.gemini.baseURL, model: 'gemini-2.5-flash', githubToken: '' };
 }
 
 export function saveSettings(settings: AISettings): void {

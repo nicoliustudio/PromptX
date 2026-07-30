@@ -31,6 +31,7 @@ export interface AISettings {
   apiKey: string;
   baseURL: string;
   model: string;
+  githubToken: string;
 }
 
 export interface ExportData {
