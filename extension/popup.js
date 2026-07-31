@@ -1,12 +1,17 @@
 /* ============================================
-   PromptX - popup.js  v2.0
-   从 chrome.storage 动态加载提示词，支持手动同步
+   PromptX - popup.js  v2.1
+   从 chrome.storage 动态加载提示词，支持手动同步和 URL 配置
    ============================================ */
 
 var cmdList = document.getElementById('cmdList');
 var cmdCount = document.getElementById('cmdCount');
 var syncBtn = document.getElementById('syncBtn');
 var syncStatus = document.getElementById('syncStatus');
+var urlInput = document.getElementById('urlInput');
+var urlSaveBtn = document.getElementById('urlSaveBtn');
+
+var URL_KEY = 'promptx_remote_url';
+var DEFAULT_URL = 'https://nicoliustudio.github.io/PromptX/prompts.json';
 
 // ── 渲染指令列表 ──
 function renderPrompts(prompts) {
@@ -33,7 +38,6 @@ function renderPrompts(prompts) {
   });
 
   Object.keys(groups).forEach(function (cat) {
-    // 分类标签
     var label = document.createElement('li');
     label.className = 'cmd-item';
     label.style.cssText = 'color:#555;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:8px 0 4px;border-bottom:none;';
@@ -81,6 +85,32 @@ function pad(n) {
   return n < 10 ? '0' + n : '' + n;
 }
 
+// ── URL 输入 ──
+function loadUrl() {
+  chrome.storage.local.get([URL_KEY], function (result) {
+    if (urlInput) {
+      urlInput.value = result[URL_KEY] || DEFAULT_URL;
+    }
+  });
+}
+
+if (urlSaveBtn) {
+  urlSaveBtn.addEventListener('click', function () {
+    var url = (urlInput && urlInput.value.trim()) || DEFAULT_URL;
+    var data = {};
+    data[URL_KEY] = url;
+    chrome.storage.local.set(data, function () {
+      if (syncStatus && urlInput) {
+        // 使用自定义 URL 时显示提示
+        var isDefault = url === DEFAULT_URL;
+        syncStatus.textContent = isDefault ? '使用默认数据源' : '数据源已更新: ' + url.substring(0, 50) + '...';
+        syncStatus.className = 'sync-status';
+        setTimeout(function () { showSyncTime(); }, 2000);
+      }
+    });
+  });
+}
+
 // ── 同步按钮 ──
 if (syncBtn) {
   syncBtn.addEventListener('click', function () {
@@ -110,7 +140,6 @@ if (syncBtn) {
         }
       });
     } else {
-      // 降级：直接读取 chrome.storage
       chrome.storage.local.get(['promptx_prompts'], function (data) {
         syncBtn.disabled = false;
         syncBtn.textContent = '同步';
@@ -120,26 +149,21 @@ if (syncBtn) {
             syncStatus.textContent = '已从缓存加载';
             syncStatus.className = 'sync-status';
           }
-        } else {
-          if (syncStatus) {
-            syncStatus.textContent = 'syncFromRemote 不可用，请检查扩展';
-            syncStatus.className = 'sync-status error';
-          }
         }
       });
     }
   });
 }
 
-// ── 初始化：从 chrome.storage 加载 ──
+// ── 初始化 ──
 function init() {
+  loadUrl();
   showSyncTime();
   chrome.storage.local.get(['promptx_prompts'], function (data) {
     var prompts = data.promptx_prompts;
     if (Array.isArray(prompts) && prompts.length > 0) {
       renderPrompts(prompts);
     } else {
-      // 无缓存，显示提示并由 popup.html 中加载的 prompts.js 触发一次加载
       if (typeof loadPrompts === 'function') {
         loadPrompts().then(function (p) {
           renderPrompts(p);

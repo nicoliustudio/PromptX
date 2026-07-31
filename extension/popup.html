@@ -107,6 +107,40 @@
       margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .url-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .url-input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #aaa;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      outline: none;
+    }
+    .url-input:focus { border-color: rgba(99,102,241,0.4); }
+    .url-save-btn {
+      background: rgba(99,102,241,0.1);
+      color: #818cf8;
+      border: 1px solid rgba(99,102,241,0.2);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .url-save-btn:hover { background: rgba(99,102,241,0.2); }
+    .url-hint {
+      font-size: 9px;
+      color: #444;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -122,6 +156,12 @@
   <div class="info">
     在 AI 聊天框输入 <strong>\</strong> 唤起指令菜单，一键填入模板。
   </div>
+
+  <div class="url-row">
+    <input type="text" class="url-input" id="urlInput" placeholder="数据源地址..." spellcheck="false">
+    <button class="url-save-btn" id="urlSaveBtn">保存</button>
+  </div>
+  <div class="url-hint">提示词数据源 URL，默认为 GitHub Pages 地址。</div>
 
   <div class="section">
     <div class="section-title" id="cmdCount">可用指令</div>

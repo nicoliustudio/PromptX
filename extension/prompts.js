@@ -4,9 +4,18 @@
    ============================================ */
 
 // ── 线上数据源 ──
-const REMOTE_URL = 'https://nicoliustudio.github.io/PromptX/prompts.json';
+const DEFAULT_URL = 'https://nicoliustudio.github.io/PromptX/prompts.json';
+const URL_KEY = 'promptx_remote_url';
 const STORAGE_KEY = 'promptx_prompts';
 const SYNC_TIME_KEY = 'promptx_last_sync';
+
+function getRemoteUrl() {
+  return new Promise(function (resolve) {
+    chrome.storage.local.get([URL_KEY], function (result) {
+      resolve(result[URL_KEY] || DEFAULT_URL);
+    });
+  });
+}
 
 // ── 内置备用提示词（网络不可用时的兜底） ──
 const FALLBACK_PROMPTS = [
@@ -64,28 +73,29 @@ const FALLBACK_PROMPTS = [
 
 // ── 从线上拉取提示词 ──
 function fetchRemotePrompts() {
-  return fetch(REMOTE_URL, { cache: 'no-cache' })
-    .then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      var prompts = data.prompts || data;
-      if (!Array.isArray(prompts) || prompts.length === 0) {
-        throw new Error('Invalid data format');
-      }
-      // 标准化字段名
-      return prompts.map(function (p) {
-        return {
-          id: p.id || '',
-          title: p.title || '',
-          command: p.command || '',
-          category: p.category || p.categoryId || '其他',
-          template: p.template || '',
-          variables: p.variables || [],
-        };
+  return getRemoteUrl().then(function (url) {
+    return fetch(url, { cache: 'no-cache' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        var prompts = data.prompts || data;
+        if (!Array.isArray(prompts) || prompts.length === 0) {
+          throw new Error('Invalid data format');
+        }
+        return prompts.map(function (p) {
+          return {
+            id: p.id || '',
+            title: p.title || '',
+            command: p.command || '',
+            category: p.category || p.categoryId || '其他',
+            template: p.template || '',
+            variables: p.variables || [],
+          };
+        });
       });
-    });
+  });
 }
 
 // ── chrome.storage 读写 ──
