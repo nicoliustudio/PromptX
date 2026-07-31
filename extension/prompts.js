@@ -160,6 +160,8 @@ const PLATFORM_CONFIG = {
   'yuanbao.tencent.com': { name: '腾讯元宝', inputSelector: 'textarea, div[contenteditable="true"]' },
   'xinghuo.xfyun.cn': { name: '讯飞星火', inputSelector: 'textarea, div[contenteditable="true"]' },
   'chatglm.cn': { name: '智谱清言', inputSelector: 'textarea, div[contenteditable="true"]' },
+  'chatshare.biz': { name: 'ChatShare', inputSelector: 'textarea, div[contenteditable="true"]' },
+  'chatshare.cloud': { name: 'ChatShare', inputSelector: 'textarea, div[contenteditable="true"]' },
 };
 
 function detectPlatform() {
